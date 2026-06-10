@@ -170,7 +170,7 @@ app.get('/api/recipes/:id', async (req, res) => {
     `, [id]);
 
     const directionsRes = await pool.query(`
-      SELECT step_number, instruction FROM directions WHERE recipe_id = $1 ORDER BY step_number
+      SELECT id, step_number, instruction FROM directions WHERE recipe_id = $1 ORDER BY step_number
     `, [id]);
 
     const seasonsRes = await pool.query(`
@@ -300,6 +300,86 @@ app.get('/api/stats', async (req, res) => {
         (SELECT count(*) FROM recipe_seasons) AS recipe_seasons
     `);
     res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Recherche de produits par nom (pour l'ajout d'ingrédients)
+app.get('/api/products/search', async (req, res) => {
+  const { q = '', limit = 20 } = req.query;
+  try {
+    const result = await pool.query(
+      `SELECT id, name FROM products WHERE name ILIKE $1 ORDER BY name LIMIT $2`,
+      [`%${q}%`, parseInt(limit)]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Ajout d'un ingrédient à une recette
+app.post('/api/ingredients', async (req, res) => {
+  const { recipe_id, product_id, quantity, unit, raw_text } = req.body;
+  if (!recipe_id || !product_id) return res.status(400).json({ error: 'recipe_id et product_id sont requis' });
+
+  try {
+    const posRes = await pool.query('SELECT COALESCE(MAX(position), 0) + 1 AS next_position FROM ingredients WHERE recipe_id = $1', [recipe_id]);
+    const result = await pool.query(
+      `INSERT INTO ingredients (recipe_id, product_id, quantity, unit, raw_text, position)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [recipe_id, product_id, quantity || null, unit || null, raw_text || null, posRes.rows[0].next_position]
+    );
+    await pool.query('UPDATE recipes_new SET num_ingredients = num_ingredients + 1 WHERE id = $1', [recipe_id]);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Suppression d'un ingrédient
+app.delete('/api/ingredients/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM ingredients WHERE id = $1 RETURNING recipe_id', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Non trouvé' });
+    await pool.query('UPDATE recipes_new SET num_ingredients = GREATEST(num_ingredients - 1, 0) WHERE id = $1', [result.rows[0].recipe_id]);
+    res.json({ deleted: parseInt(req.params.id) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Ajout d'une étape à une recette
+app.post('/api/directions', async (req, res) => {
+  const { recipe_id, instruction } = req.body;
+  if (!recipe_id || !instruction) return res.status(400).json({ error: 'recipe_id et instruction sont requis' });
+
+  try {
+    const stepRes = await pool.query('SELECT COALESCE(MAX(step_number), 0) + 1 AS next_step FROM directions WHERE recipe_id = $1', [recipe_id]);
+    const result = await pool.query(
+      `INSERT INTO directions (recipe_id, step_number, instruction) VALUES ($1, $2, $3) RETURNING *`,
+      [recipe_id, stepRes.rows[0].next_step, instruction]
+    );
+    await pool.query('UPDATE recipes_new SET num_steps = num_steps + 1 WHERE id = $1', [recipe_id]);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Suppression d'une étape
+app.delete('/api/directions/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM directions WHERE id = $1 RETURNING recipe_id', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Non trouvé' });
+    await pool.query('UPDATE recipes_new SET num_steps = GREATEST(num_steps - 1, 0) WHERE id = $1', [result.rows[0].recipe_id]);
+    res.json({ deleted: parseInt(req.params.id) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

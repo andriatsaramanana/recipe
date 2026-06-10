@@ -4,6 +4,7 @@ import { TabView, TabPanel } from 'primereact/tabview';
 import { InputText } from 'primereact/inputtext';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Dropdown } from 'primereact/dropdown';
+import { AutoComplete } from 'primereact/autocomplete';
 import { Button } from 'primereact/button';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
@@ -22,6 +23,9 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [newSeason, setNewSeason] = useState({ season_id: null, note: '' });
   const [newSpecialty, setNewSpecialty] = useState({ country_id: null, region_id: null, description: '' });
+  const [newIngredient, setNewIngredient] = useState({ product: null, quantity: '', unit: '' });
+  const [productSuggestions, setProductSuggestions] = useState([]);
+  const [newStep, setNewStep] = useState('');
   const toast = useRef(null);
 
   const load = useCallback(async () => {
@@ -103,6 +107,48 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
     load();
   };
 
+  const searchProducts = async (e) => {
+    const res = await api.get('/products/search', { params: { q: e.query } });
+    setProductSuggestions(res.data);
+  };
+
+  const addIngredient = async () => {
+    if (!newIngredient.product?.id) return;
+    try {
+      await api.post('/ingredients', {
+        recipe_id: recipeId,
+        product_id: newIngredient.product.id,
+        quantity: newIngredient.quantity || null,
+        unit: newIngredient.unit || null,
+      });
+      setNewIngredient({ product: null, quantity: '', unit: '' });
+      load();
+    } catch (err) {
+      toast.current?.show({ severity: 'error', summary: 'Erreur', detail: err.response?.data?.error || err.message });
+    }
+  };
+
+  const removeIngredient = async (id) => {
+    await api.delete(`/ingredients/${id}`);
+    load();
+  };
+
+  const addStep = async () => {
+    if (!newStep.trim()) return;
+    try {
+      await api.post('/directions', { recipe_id: recipeId, instruction: newStep.trim() });
+      setNewStep('');
+      load();
+    } catch (err) {
+      toast.current?.show({ severity: 'error', summary: 'Erreur', detail: err.response?.data?.error || err.message });
+    }
+  };
+
+  const removeStep = async (id) => {
+    await api.delete(`/directions/${id}`);
+    load();
+  };
+
   return (
     <Dialog visible header={recipe ? recipe.recipe_title : 'Chargement...'} style={{ width: '70vw' }} onHide={onHide} maximizable>
       <Toast ref={toast} />
@@ -137,13 +183,50 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
               <Column field="quantity" header="Quantité" style={{ width: '100px' }} />
               <Column field="unit" header="Unité" style={{ width: '100px' }} />
               <Column field="raw_text" header="Texte brut" />
+              <Column body={(row) => <Button icon="pi pi-trash" rounded text severity="danger" onClick={() => removeIngredient(row.id)} />} style={{ width: '60px' }} />
             </DataTable>
+            <div className="flex gap-2 mt-3 align-items-end flex-wrap">
+              <div className="flex flex-column gap-1 flex-grow-1">
+                <label>Produit</label>
+                <AutoComplete
+                  value={newIngredient.product}
+                  suggestions={productSuggestions}
+                  completeMethod={searchProducts}
+                  field="name"
+                  placeholder="Rechercher un produit..."
+                  onChange={(e) => setNewIngredient({ ...newIngredient, product: e.value })}
+                  forceSelection
+                  style={{ minWidth: '220px' }}
+                />
+              </div>
+              <div className="flex flex-column gap-1">
+                <label>Quantité</label>
+                <InputText value={newIngredient.quantity} onChange={(e) => setNewIngredient({ ...newIngredient, quantity: e.target.value })} style={{ width: '100px' }} />
+              </div>
+              <div className="flex flex-column gap-1">
+                <label>Unité</label>
+                <InputText value={newIngredient.unit} onChange={(e) => setNewIngredient({ ...newIngredient, unit: e.target.value })} style={{ width: '100px' }} />
+              </div>
+              <Button label="Ajouter" icon="pi pi-plus" onClick={addIngredient} />
+            </div>
           </TabPanel>
 
           <TabPanel header="Étapes">
             <ol>
-              {recipe.directions.map(d => <li key={d.step_number} className="mb-2">{d.instruction}</li>)}
+              {recipe.directions.map(d => (
+                <li key={d.id} className="mb-2 flex align-items-center justify-content-between gap-2">
+                  <span>{d.instruction}</span>
+                  <Button icon="pi pi-trash" rounded text severity="danger" onClick={() => removeStep(d.id)} />
+                </li>
+              ))}
             </ol>
+            <div className="flex gap-2 mt-3 align-items-end">
+              <div className="flex flex-column gap-1 flex-grow-1">
+                <label>Nouvelle étape</label>
+                <InputTextarea value={newStep} onChange={(e) => setNewStep(e.target.value)} rows={2} />
+              </div>
+              <Button label="Ajouter" icon="pi pi-plus" onClick={addStep} />
+            </div>
           </TabPanel>
 
           <TabPanel header="Saisons">
