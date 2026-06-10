@@ -23,8 +23,9 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [newSeason, setNewSeason] = useState({ season_id: null, note: '' });
   const [newSpecialty, setNewSpecialty] = useState({ country_id: null, region_id: null, description: '' });
-  const [newIngredient, setNewIngredient] = useState({ product: null, quantity: '', unit: '' });
+  const [newIngredient, setNewIngredient] = useState({ product: null, quantity: '', unit: null });
   const [productSuggestions, setProductSuggestions] = useState([]);
+  const [units, setUnits] = useState([]);
   const [newStep, setNewStep] = useState('');
   const toast = useRef(null);
 
@@ -45,6 +46,7 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
     api.get('/seasons').then(res => setSeasons(res.data.map(s => ({ label: `${s.emoji || ''} ${s.name_fr}`.trim(), value: s.id }))));
     api.get('/countries').then(res => setCountries(res.data.map(c => ({ label: c.name_fr, value: c.id }))));
     api.get('/regions').then(res => setRegions(res.data.map(r => ({ label: r.name_fr, value: r.id }))));
+    api.get('/units').then(res => setUnits(res.data.map(u => ({ label: u, value: u }))));
   }, [load]);
 
   const loadCost = useCallback(() => {
@@ -121,7 +123,7 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
         quantity: newIngredient.quantity || null,
         unit: newIngredient.unit || null,
       });
-      setNewIngredient({ product: null, quantity: '', unit: '' });
+      setNewIngredient({ product: null, quantity: '', unit: null });
       load();
     } catch (err) {
       toast.current?.show({ severity: 'error', summary: 'Erreur', detail: err.response?.data?.error || err.message });
@@ -205,7 +207,7 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
               </div>
               <div className="flex flex-column gap-1">
                 <label>Unité</label>
-                <InputText value={newIngredient.unit} onChange={(e) => setNewIngredient({ ...newIngredient, unit: e.target.value })} style={{ width: '100px' }} />
+                <Dropdown value={newIngredient.unit} options={units} onChange={(e) => setNewIngredient({ ...newIngredient, unit: e.value })} placeholder="Unité" filter showClear style={{ width: '140px' }} />
               </div>
               <Button label="Ajouter" icon="pi pi-plus" onClick={addIngredient} />
             </div>

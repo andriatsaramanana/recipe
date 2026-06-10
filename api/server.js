@@ -306,6 +306,21 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// Liste des unités utilisées par les ingrédients (pour le formulaire d'ajout)
+app.get('/api/units', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT DISTINCT unit FROM ingredients
+      WHERE unit IS NOT NULL AND unit <> ''
+      ORDER BY unit
+    `);
+    res.json(result.rows.map(r => r.unit));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Recherche de produits par nom (pour l'ajout d'ingrédients)
 app.get('/api/products/search', async (req, res) => {
   const { q = '', limit = 20 } = req.query;
