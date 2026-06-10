@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { InputText } from 'primereact/inputtext';
 import { Dropdown } from 'primereact/dropdown';
+import { Button } from 'primereact/button';
+import { Toast } from 'primereact/toast';
 import api from '../services/api';
 import RecipeDetail from './RecipeDetail';
 
@@ -18,6 +20,7 @@ export default function RecipesPage() {
   const [categories, setCategories] = useState([]);
   const [seasons, setSeasons] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const toast = useRef(null);
 
   useEffect(() => {
     api.get('/categories').then(res => setCategories(res.data.map(c => ({ label: c.name_fr || c.name_en, value: c.id }))));
@@ -41,9 +44,23 @@ export default function RecipesPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const createRecipe = async () => {
+    try {
+      const res = await api.post('/recipes', { recipe_title: 'Nouvelle recette' });
+      load();
+      setSelectedId(res.data.id);
+    } catch (err) {
+      toast.current?.show({ severity: 'error', summary: 'Erreur', detail: err.response?.data?.error || err.message });
+    }
+  };
+
   return (
     <div className="card">
-      <h2 className="mt-0">Recettes</h2>
+      <Toast ref={toast} />
+      <div className="flex justify-content-between align-items-center mb-3">
+        <h2 className="mt-0 mb-0">Recettes</h2>
+        <Button label="Nouvelle recette" icon="pi pi-plus" onClick={createRecipe} />
+      </div>
 
       <div className="flex flex-wrap gap-3 mb-3">
         <span className="p-input-icon-left">

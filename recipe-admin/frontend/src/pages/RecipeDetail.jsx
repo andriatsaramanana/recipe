@@ -19,6 +19,7 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
   const [countries, setCountries] = useState([]);
   const [regions, setRegions] = useState([]);
   const [cost, setCost] = useState(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [newSeason, setNewSeason] = useState({ season_id: null, note: '' });
   const [newSpecialty, setNewSpecialty] = useState({ country_id: null, region_id: null, description: '' });
   const toast = useRef(null);
@@ -106,7 +107,7 @@ export default function RecipeDetail({ recipeId, onHide, onSaved }) {
     <Dialog visible header={recipe ? recipe.recipe_title : 'Chargement...'} style={{ width: '70vw' }} onHide={onHide} maximizable>
       <Toast ref={toast} />
       {loading || !recipe ? <p>Chargement...</p> : (
-        <TabView onTabChange={(e) => { if (e.index === 5 && !cost) loadCost(); }}>
+        <TabView activeIndex={activeIndex} onTabChange={(e) => { setActiveIndex(e.index); if (e.index === 5 && !cost) loadCost(); }}>
           <TabPanel header="Infos">
             <div className="flex flex-column gap-3 mt-2" style={{ maxWidth: '600px' }}>
               <div className="flex flex-column gap-1">

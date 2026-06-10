@@ -129,6 +129,24 @@ app.get('/api/recipes', async (req, res) => {
   }
 });
 
+// Création d'une nouvelle recette
+app.post('/api/recipes', async (req, res) => {
+  const { recipe_title, description, category_id, subcategory_id } = req.body;
+  if (!recipe_title) return res.status(400).json({ error: 'recipe_title est requis' });
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO recipes_new (recipe_title, description, category_id, subcategory_id, num_ingredients, num_steps)
+       VALUES ($1, $2, $3, $4, 0, 0) RETURNING *`,
+      [recipe_title, description || null, category_id || null, subcategory_id || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Détail d'une recette : ingrédients, étapes, saisons, spécialités
 app.get('/api/recipes/:id', async (req, res) => {
   const { id } = req.params;
