@@ -34,4 +34,5 @@ yarn-error.log*
 
 # Large data dumps / installers (too big for GitHub)
 /data/
+/db_export/
 *.deb
